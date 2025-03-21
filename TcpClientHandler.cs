@@ -30,13 +30,15 @@ namespace TCPDataValidator
                     return Encoding.ASCII.GetString(buffer, 0, bytesRead); 
                 }
             }
-            catch (SocketException ex) 
+            catch (SocketException ex)
             {
-                throw new ApplicationException($"Ошибка подключения к серверу {_ipAddress}:{_port}: {ex.Message}");
+                Console.WriteLine($"SocketException: {ex.Message}");
+                throw new ApplicationException($"Ошибка подключения к серверу {_ipAddress}:{_port}: {ex.Message}", ex);
             }
             catch (TimeoutException ex)
             {
-                throw new ApplicationException($"Тайм-аут подключения к серверу {_ipAddress}:{_port}: {ex.Message}");
+                Console.WriteLine($"TimeoutException: {ex.Message}");
+                throw new ApplicationException($"Тайм-аут подключения к серверу {_ipAddress}:{_port}: {ex.Message}", ex);
             }
             catch (Exception ex) 
             {
