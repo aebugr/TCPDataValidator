@@ -8,18 +8,18 @@ namespace TCPDataValidator
 {
     public class ApplicationManager
     {
-        private Config _config;
+        private Config config;
 
         public ApplicationManager(Config config)
         {
-            _config = config;
+            this.config = config;
         }
 
         public async Task RunAsync() // Асинхронный метод RunAsync, который управляет всей логикой приложения
         {
             List<(string Data1, string Data2)> dataList = new List<(string Data1, string Data2)>();
 
-            foreach (var server in _config.Servers)
+            foreach (var server in config.Servers)
             {
                 var client = new TcpClientHandler(server.IpAddress, server.Port);
                 try
@@ -42,7 +42,7 @@ namespace TCPDataValidator
             }
             var result = DataComparer.CompareData(dataList);
             string resultPacket = $"#90#010102#27{result.Data1};{result.Data2}#91";
-            var resultServer = new TcpResultServer(_config.ResultServerPort);
+            var resultServer = new TcpResultServer(config.ResultServerPort);
             try
             {
                 await resultServer.SendResultAsync(resultPacket);
