@@ -3,7 +3,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace test
+namespace TCPDataValidator
 {
     public class TcpClientHandler 
     {
