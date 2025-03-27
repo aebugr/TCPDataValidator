@@ -1,32 +1,130 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace TCPDataValidator
 {
-    public class TcpResultServer 
+    /// <summary>
+    /// TCP-сервер для отправки результатов проверки
+    /// </summary>
+    public class TcpResultServer : IDisposable
     {
-        private int _port; 
+        private readonly int _port;
+        private TcpListener _listener;
+        private readonly List<TcpClient> _connectedClients = new List<TcpClient>();
+        private readonly object _lock = new object();
+        private bool _isRunning;
+
         public TcpResultServer(int port)
         {
             _port = port;
         }
 
-        public async Task SendResultAsync(string result) // Метод для отправки данных
+        /// <summary>
+        /// Запуск сервера результатов
+        /// </summary>
+        public async Task StartAsync(CancellationToken cancellationToken)
         {
-            TcpListener listener = new TcpListener(System.Net.IPAddress.Any, _port);
-            listener.Start(); 
+            _listener = new TcpListener(IPAddress.Any, _port);
+            _listener.Start();
+            _isRunning = true;
+            Console.WriteLine($"Сервер результатов запущен на порту {_port}");
 
-            using (TcpClient client = await listener.AcceptTcpClientAsync())
+            try
             {
-                NetworkStream stream = client.GetStream(); // Получение потока данных
-                byte[] buffer = Encoding.ASCII.GetBytes(result); // Преобразование строки в байты
-                await stream.WriteAsync(buffer, 0, buffer.Length); // Отправление данных клиенту
+                while (_isRunning && !cancellationToken.IsCancellationRequested)
+                {
+                    var client = await _listener.AcceptTcpClientAsync()
+                        .WithCancellation(cancellationToken);
+
+                    lock (_lock)
+                    {
+                        _connectedClients.Add(client);
+                    }
+                    Console.WriteLine($"Новое подключение: {client.Client.RemoteEndPoint}");
+                }
             }
-            listener.Stop(); 
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("Сервер результатов остановлен");
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Ошибка сервера результатов: {ex.Message}");
+                Console.ResetColor();
+            }
+        }
+
+        /// <summary>
+        /// Рассылка результатов всем подключенным клиентам
+        /// </summary>
+        public async Task BroadcastResultAsync(string result)
+        {
+            List<TcpClient> clientsToRemove = new List<TcpClient>();
+
+            lock (_lock)
+            {
+                foreach (var client in _connectedClients)
+                {
+                    try
+                    {
+                        if (client.Connected)
+                        {
+                            var stream = client.GetStream();
+                            byte[] buffer = Encoding.ASCII.GetBytes(result);
+                            stream.WriteAsync(buffer, 0, buffer.Length).Wait(1000);
+                        }
+                        else
+                        {
+                            clientsToRemove.Add(client);
+                        }
+                    }
+                    catch
+                    {
+                        clientsToRemove.Add(client);
+                    }
+                }
+
+                // Удаление отключенных клиентов
+                foreach (var client in clientsToRemove)
+                {
+                    client.Dispose();
+                    _connectedClients.Remove(client);
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            _isRunning = false;
+            lock (_lock)
+            {
+                foreach (var client in _connectedClients)
+                {
+                    client.Dispose();
+                }
+                _connectedClients.Clear();
+            }
+            _listener?.Stop();
+        }
+    }
+
+    public static class TaskExtensions
+    {
+        public static async Task<T> WithCancellation<T>(this Task<T> task, CancellationToken cancellationToken)
+        {
+            var tcs = new TaskCompletionSource<bool>();
+            using (cancellationToken.Register(s => ((TaskCompletionSource<bool>)s).TrySetResult(true), tcs))
+            {
+                if (task != await Task.WhenAny(task, tcs.Task))
+                    throw new OperationCanceledException(cancellationToken);
+            }
+            return await task;
         }
     }
 }

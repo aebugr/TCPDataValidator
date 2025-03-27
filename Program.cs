@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace TCPDataValidator
@@ -14,7 +12,24 @@ namespace TCPDataValidator
             {
                 var config = Config.LoadConfig("config.json");
                 var appManager = new ApplicationManager(config);
-                await appManager.RunAsync();
+
+                // Создаём CancellationTokenSource для управления завершением работы
+                using (var cts = new CancellationTokenSource())
+                {
+                    // Настраиваем обработчик для Ctrl+C
+                    Console.CancelKeyPress += (sender, e) =>
+                    {
+                        e.Cancel = true; // Предотвращаем немедленное завершение
+                        cts.Cancel();    // Посылаем сигнал отмены
+                        Console.WriteLine("\nЗавершение работы...");
+                    };
+
+                    await appManager.RunAsync(cts.Token);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("Работа программы завершена по запросу пользователя");
             }
             catch (Exception ex)
             {

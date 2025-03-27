@@ -1,21 +1,32 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace TCPDataValidator
 {
-    public static class DataComparer 
+    /// <summary>
+    /// Сравнение данных от разных серверов
+    /// </summary>
+    public static class DataComparer
     {
-        // Сравнивает данные из списка. Если все значения Data1 или Data2 одинаковы, возвращает их, иначе "NoRead".
-        public static (string Data1, string Data2) CompareData(List<(string Data1, string Data2)> dataList) 
+        /// <summary>
+        /// Сравнение списка данных
+        /// </summary>
+        public static (string Data1, string Data2) CompareData(IReadOnlyCollection<(string Data1, string Data2)> dataList)
         {
-            string data1 = dataList.Select(d => d.Data1).Distinct().Count() == 1 ? 
-                dataList[0].Data1 : "NoRead"; 
+            if (dataList == null || dataList.Count == 0)
+                return ("NoRead", "NoRead");
 
-            string data2 = dataList.Select(d => d.Data2).Distinct().Count() == 1 ? dataList[0].Data2 : "NoRead"; 
-            return (data1, data2); 
+            string data1 = AllEqual(dataList.Select(x => x.Data1)) ? dataList.First().Data1 : "NoRead";
+            string data2 = AllEqual(dataList.Select(x => x.Data2)) ? dataList.First().Data2 : "NoRead";
+
+            return (data1, data2);
+        }
+
+        private static bool AllEqual(IEnumerable<string> values)
+        {
+            var first = values.FirstOrDefault();
+            return !string.IsNullOrEmpty(first) && values.All(v => v == first);
         }
     }
 }

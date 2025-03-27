@@ -1,22 +1,30 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace TCPDataValidator
 {
+    /// <summary>
+    /// Обработчик входящих пакетов данных
+    /// </summary>
     public static class PacketProcessor
     {
-        public static (string Data1, string Data2) ProcessPacket(string packet) // Метод для обработки строки данных
+        private static readonly Regex PacketRegex = new Regex(
+            @"#90#010102#27(?<Data1>\d{6}|\d{8});(?<Data2>\d{6}|\d{8})#91",
+            RegexOptions.Compiled);
+
+        /// <summary>
+        /// Разбор пакета данных
+        /// </summary>
+        public static (string Data1, string Data2) ProcessPacket(string packet)
         {
-            var match = Regex.Match(packet, @"#90#010102#27(\d{6}|\d{8});(\d{6}|\d{8})#91");
-            if (match.Success)
-            {
-                return (match.Groups[1].Value, match.Groups[2].Value);
-            }
-            throw new FormatException("Неверный формат пакета");
+            if (string.IsNullOrWhiteSpace(packet))
+                throw new ArgumentException("Пустой пакет данных");
+
+            var match = PacketRegex.Match(packet);
+            if (!match.Success)
+                throw new FormatException($"Неверный формат пакета: {packet}");
+
+            return (match.Groups["Data1"].Value, match.Groups["Data2"].Value);
         }
     }
 }
