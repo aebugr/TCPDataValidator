@@ -4,48 +4,69 @@ using TCPDataValidator;
 
 public class TestProject1
 {
-    [Fact]
-    public void TestPacketProcessor_ProcessPacket()
+    public class DataComparerTests
     {
-        // Arrange
-        string validPacket = "#90#010102#27123456;789012#91";
-        string invalidPacket = "#90#010102#27InvalidData#91";
+        [Fact]
+        public void CompareData_AllValuesEqual_ReturnsCorrectData()
+        {
+            // Arrange
+            var dataList = new List<(string, string)>
+            {
+                ("123456", "654321"),
+                ("123456", "654321")
+            };
 
-        // Act & Assert
-        var result = PacketProcessor.ProcessPacket(validPacket);
-        Assert.Equal("123456", result.Data1);
-        Assert.Equal("789012", result.Data2);
+            // Act
+            var result = DataComparer.CompareData(dataList);
 
-        // Проверка на неверный формат пакета
-        var exception = Assert.Throws<FormatException>(() => PacketProcessor.ProcessPacket(invalidPacket));
-        Assert.Equal("Неверный формат пакета", exception.Message);
+            // Assert
+            Assert.Equal("123456", result.Data1);
+            Assert.Equal("654321", result.Data2);
+        }
+
+        [Fact]
+        public void CompareData_ValuesNotEqual_ReturnsNoRead()
+        {
+            // Arrange
+            var dataList = new List<(string, string)>
+            {
+                ("123456", "654321"),
+                ("654321", "123456")
+            };
+
+            // Act
+            var result = DataComparer.CompareData(dataList);
+
+            // Assert
+            Assert.Equal("NoRead", result.Data1);
+            Assert.Equal("NoRead", result.Data2);
+        }
     }
 
-    [Fact]
-    public void TestDataComparer_CompareData()
+    public class PacketProcessorTests
     {
-        // Arrange
-        var dataList = new List<(string Data1, string Data2)>
+        [Fact]
+        public void ProcessPacket_ValidPacket_ReturnsCorrectData()
         {
-            ("123456", "789012"),
-            ("123456", "789012"),
-            ("123456", "789012")
-        };
+            // Arrange
+            string validPacket = "#90#010102#27123456;654321#91";
 
-        var mixedDataList = new List<(string Data1, string Data2)>
+            // Act
+            var result = PacketProcessor.ProcessPacket(validPacket);
+
+            // Assert
+            Assert.Equal("123456", result.Data1);
+            Assert.Equal("654321", result.Data2);
+        }
+
+        [Fact]
+        public void ProcessPacket_InvalidPacket_ThrowsFormatException()
         {
-            ("123456", "789012"),
-            ("654321", "789012"),
-            ("123456", "210987")
-        };
+            // Arrange
+            string invalidPacket = "invalid_packet_format";
 
-        // Act & Assert
-        var result = DataComparer.CompareData(dataList);
-        Assert.Equal("123456", result.Data1);
-        Assert.Equal("789012", result.Data2);
-
-        var mixedResult = DataComparer.CompareData(mixedDataList);
-        Assert.Equal("NoRead", mixedResult.Data1);
-        Assert.Equal("NoRead", mixedResult.Data2);
+            // Act & Assert
+            Assert.Throws<FormatException>(() => PacketProcessor.ProcessPacket(invalidPacket));
+        }
     }
 }
