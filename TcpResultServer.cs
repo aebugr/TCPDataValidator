@@ -65,36 +65,46 @@ namespace TCPDataValidator
         /// </summary>
         public async Task BroadcastResultAsync(string result)
         {
-            List<TcpClient> clientsToRemove = new List<TcpClient>();
-
+            // Копируем список клиентов под lock
+            List<TcpClient> clientsToProcess;
             lock (_lock)
             {
-                foreach (var client in _connectedClients)
+                clientsToProcess = new List<TcpClient>(_connectedClients);
+            }
+
+            List<TcpClient> clientsToRemove = new List<TcpClient>();
+            byte[] buffer = Encoding.ASCII.GetBytes(result);
+
+            foreach (var client in clientsToProcess)
+            {
+                try
                 {
-                    try
+                    if (client.Connected)
                     {
-                        if (client.Connected)
-                        {
-                            var stream = client.GetStream();
-                            byte[] buffer = Encoding.ASCII.GetBytes(result);
-                            stream.WriteAsync(buffer, 0, buffer.Length).Wait(1000);
-                        }
-                        else
-                        {
-                            clientsToRemove.Add(client);
-                        }
+                        var stream = client.GetStream();
+                        await stream.WriteAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
                     }
-                    catch
+                    else
                     {
                         clientsToRemove.Add(client);
                     }
                 }
-
-                // Удаление отключенных клиентов
-                foreach (var client in clientsToRemove)
+                catch
                 {
-                    client.Dispose();
-                    _connectedClients.Remove(client);
+                    clientsToRemove.Add(client);
+                }
+            }
+
+            // Удаление отключенных клиентов под lock
+            if (clientsToRemove.Count > 0)
+            {
+                lock (_lock)
+                {
+                    foreach (var client in clientsToRemove)
+                    {
+                        client.Dispose();
+                        _connectedClients.Remove(client);
+                    }
                 }
             }
         }
